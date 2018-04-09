@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.FindSymbols;
 
 namespace TestRequirementAnalyzer
 {
@@ -30,14 +32,17 @@ namespace TestRequirementAnalyzer
         {
             // TODO: Consider registering other actions that act on syntax instead of or in addition to symbols
             // See https://github.com/dotnet/roslyn/blob/master/docs/analyzers/Analyzer%20Actions%20Semantics.md for more information
-            context.RegisterSymbolAction(AnalyzeSymbol, SymbolKind.NamedType);
+            context.RegisterSymbolAction(AnalyzeSymbol, SymbolKind.Method);
+            
         }
 
         private static void AnalyzeSymbol(SymbolAnalysisContext context)
         {
             // TODO: Replace the following code with your own analysis, generating Diagnostic objects for any issues you find
-            var namedTypeSymbol = (INamedTypeSymbol)context.Symbol;
-
+            var namedTypeSymbol = (IMethodSymbol)context.Symbol;
+            //namedTypeSymbol.GetAttributes()
+            //namedTypeSymbol.DeclaringSyntaxReferences
+            IsCoveredByTest(namedTypeSymbol, context.Compilation);
             // Find just those named type symbols with names containing lowercase letters.
             if (namedTypeSymbol.Name.ToCharArray().Any(char.IsLower))
             {
@@ -47,5 +52,21 @@ namespace TestRequirementAnalyzer
                 context.ReportDiagnostic(diagnostic);
             }
         }
+
+        private static bool IsCoveredByTest(IMethodSymbol methodSymbol, Compilation compilation)
+        {
+            //https://stackoverflow.com/questions/31861762/finding-all-references-to-a-method-with-roslyn
+            //var methodReferences = methodSymbol.;
+            //methodReferences.First();
+            //compilation.GetSemanticModel(methodReferences.First().SyntaxTree);
+            // we have a problem https://stackoverflow.com/questions/23203206/roslyn-current-workspace-in-diagnostic-with-code-fix-project
+            // can possibly get around it with https://stackoverflow.com/questions/31796107/how-to-get-solution-path-in-net-code-analyzer
+            // can create an ad-hoc workspace https://stackoverflow.com/questions/31861762/finding-all-references-to-a-method-with-roslyn
+
+            //SymbolFinder.FindCallersAsync(methodSymbol,)
+            throw new NotImplementedException();
+        }
+
+
     }
 }
