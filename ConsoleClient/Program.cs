@@ -23,6 +23,8 @@ namespace ConsoleClient
             // - Same seems to be happening for all of my conventional manager/engine/accessors (i.e. GraphDbAccessor has no documents)
             // - Finds no tested methods
 
+            // great starting tutorial series https://joshvarty.com/2014/10/30/learn-roslyn-now-part-7-introducing-the-semantic-model/
+
             MSBuildWorkspace workspace = MSBuildWorkspace.Create();
             Solution solution = workspace.OpenSolutionAsync(@"C:\workspaces\ScoutSheet\ScoutSheet\ScoutSheet.sln").Result;
 
