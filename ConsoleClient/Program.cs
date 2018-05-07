@@ -96,7 +96,10 @@ namespace ConsoleClient
         private static bool IsMethodUnitTest(IMethodSymbol methodSymbol)
         {
             // ultimately, It would be cool to inject a configFacade. in the console app, i could construct a configuration facade based on arguments and register it with ninject
-            List<string> testTypes = new List<string>() { "Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod" }; // get this from configuration or pass it to this method
+            List<string> testTypes = new List<string>() {
+                //"Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod"
+                "TestMethod" // Currently can't get a fully qualified name for external types
+            }; // get this from configuration or pass it to this method
 
             // with reflection, we could just use isAssignableFrom, but that doesn't exist for symbols and we can't convert symbols to type objects
             //https://stackoverflow.com/questions/33965410/how-to-compare-a-microsoft-codeanalysis-itypesymbol-to-a-system-type
@@ -105,7 +108,6 @@ namespace ConsoleClient
             // I take fully-qualified names of test attributes and compare on those. Easier to configure, and roslyn has public fully qualified name support quasi-planned
             // additionally, it doesn't require me to create or pass a compilation. However, there is the rare case that it could confuse types that have the same 
             // fullname. It also makes comparison a little derpier because I can't use built in comparison like ClassifyConversion
-            // https://stackoverflow.com/questions/27105909/get-fully-qualified-metadata-name-in-roslyn
             IEnumerable<string> attributeTypeStrings = methodSymbol.GetAttributes().SelectMany(ad => GetAssignableTypes(ad.AttributeClass).Select(s => GetFullMetadataName(s)));
             bool doesHaveTestAttribute = testTypes.Intersect(attributeTypeStrings).Any();
 
@@ -152,37 +154,32 @@ namespace ConsoleClient
         }
 
 
-        public static string GetFullMetadataName(INamespaceOrTypeSymbol symbol)
+        public static string GetFullMetadataName(ISymbol symbol)
         {
             //Source: https://stackoverflow.com/questions/27105909/get-fully-qualified-metadata-name-in-roslyn
-            ISymbol symbolRecuser = symbol;
-            if (symbolRecuser == null || IsRootNamespace(symbolRecuser))
-            {
-                return string.Empty;
-            }
-
-            var sb = new StringBuilder(symbolRecuser.MetadataName);
-            var last = symbolRecuser;
-
-            symbolRecuser = symbolRecuser.ContainingSymbol;
-
-            while (!IsRootNamespace(symbolRecuser))
-            {
-                if (symbolRecuser is ITypeSymbol && last is ITypeSymbol)
-                {
-                    sb.Insert(0, '+');
-                }
-                else
-                {
-                    sb.Insert(0, '.');
-                }
-
-                sb.Insert(0, symbolRecuser.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
-                //sb.Insert(0, s.MetadataName);
-                symbolRecuser = symbolRecuser.ContainingSymbol;
-            }
-
-            return sb.ToString();
+            //Source: https://stackoverflow.com/questions/36407563/how-can-i-get-the-fully-qualified-namespace-from-a-using-directive-in-roslyn
+            SymbolDisplayFormat displayFormat = new SymbolDisplayFormat(
+                globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.OmittedAsContaining,
+                typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
+                propertyStyle: SymbolDisplayPropertyStyle.NameOnly,
+                genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters,
+                memberOptions:
+                    SymbolDisplayMemberOptions.IncludeContainingType |
+                    SymbolDisplayMemberOptions.IncludeExplicitInterface,
+                parameterOptions:
+                    SymbolDisplayParameterOptions.IncludeParamsRefOut |
+                    SymbolDisplayParameterOptions.IncludeType,
+                // Not showing the name is important because we visit parameters to display their
+                // types.  If we visited their types directly, we wouldn't get ref/out/params.
+                miscellaneousOptions:
+                    SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers |
+                    SymbolDisplayMiscellaneousOptions.UseSpecialTypes |
+                    SymbolDisplayMiscellaneousOptions.UseAsterisksInMultiDimensionalArrays |
+                    SymbolDisplayMiscellaneousOptions.UseErrorTypeSymbolName
+            );
+            string formattedTypeName = symbol.OriginalDefinition.ToDisplayString(displayFormat);
+            return formattedTypeName;
+            
         }
 
         private static bool IsRootNamespace(ISymbol symbol)
