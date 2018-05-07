@@ -106,10 +106,39 @@ namespace ConsoleClient
             // additionally, it doesn't require me to create or pass a compilation. However, there is the rare case that it could confuse types that have the same 
             // fullname. It also makes comparison a little derpier because I can't use built in comparison like ClassifyConversion
             // https://stackoverflow.com/questions/27105909/get-fully-qualified-metadata-name-in-roslyn
-            IEnumerable<string> attributeTypeStrings = methodSymbol.GetAttributes().SelectMany(ad => ad.AttributeClass.AllInterfaces.Select(s => GetFullMetadataName(s)));
+            IEnumerable<string> attributeTypeStrings = methodSymbol.GetAttributes().SelectMany(ad => GetAssignableTypes(ad.AttributeClass).Select(s => GetFullMetadataName(s)));
             bool doesHaveTestAttribute = testTypes.Intersect(attributeTypeStrings).Any();
 
             return doesHaveTestAttribute;
+        }
+
+        private static IEnumerable<INamedTypeSymbol> GetAssignableTypes(INamedTypeSymbol typeSymbol)
+        {
+            List<INamedTypeSymbol> typesAssignableTo = new List<INamedTypeSymbol>();
+
+            // assignable as self
+            typesAssignableTo.Add(typeSymbol);
+
+            // assignable as inherited classes
+            IEnumerable<INamedTypeSymbol> inheritedClasses = GetClassInheritanceChain(typeSymbol);
+            typesAssignableTo.AddRange(inheritedClasses);
+
+            // assignable as interfaces
+            typesAssignableTo.AddRange(typeSymbol.AllInterfaces);
+
+            return typesAssignableTo;
+        }
+
+        private static IEnumerable<INamedTypeSymbol> GetClassInheritanceChain(INamedTypeSymbol typeSymbol)
+        {
+            List<INamedTypeSymbol> inheritedClassChain = new List<INamedTypeSymbol>();
+            INamedTypeSymbol currentSymbol = typeSymbol.BaseType;
+            while (currentSymbol != null)
+            {
+                inheritedClassChain.Add(typeSymbol);
+            }
+
+            return inheritedClassChain;
         }
 
         private static ITypeSymbol TypeToSymbol(Type type, Compilation compilation)
