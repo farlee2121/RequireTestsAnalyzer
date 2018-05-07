@@ -19,9 +19,7 @@ namespace ConsoleClient
         {
             //Problems:
             // - Need to be able to exclude types and namespaces (like the EF migrations)
-            // - Doesn't find any document in Web project. Thus it isn't accounting for controllers or other classes in web project
-            // - Same seems to be happening for all of my conventional manager/engine/accessors (i.e. GraphDbAccessor has no documents)
-            // - Finds no tested methods
+            // - not finding any attributes
 
             // great starting tutorial series https://joshvarty.com/2014/10/30/learn-roslyn-now-part-7-introducing-the-semantic-model/
 
@@ -37,11 +35,11 @@ namespace ConsoleClient
                 Project project = solution.GetProject(projectId);
 
                 IEnumerable<IMethodSymbol> methodList = GetMethods(project);
-                
+
                 IEnumerable<IGrouping<bool, IMethodSymbol>> testedGrouping = methodList.GroupBy(method => IsMethodTested(method, solution));
 
-                untestedMethodList.AddRange(testedGrouping.Where(group => group.Key == false).SelectMany(method =>method));
-                testedMethodList.AddRange(testedGrouping.Where(group => group.Key == true).SelectMany(method =>method));
+                untestedMethodList.AddRange(testedGrouping.Where(group => group.Key == false).SelectMany(method => method));
+                testedMethodList.AddRange(testedGrouping.Where(group => group.Key == true).SelectMany(method => method));
             }
             Console.WriteLine("Untested Methods: \n");
             foreach (IMethodSymbol untestedMethod in untestedMethodList)
@@ -63,8 +61,9 @@ namespace ConsoleClient
             Compilation compilation = project.GetCompilationAsync().Result;
             // option 1
             IEnumerable<IMethodSymbol> methodSymbols = compilation.GetSymbolsWithName(name => true, SymbolFilter.Member).OfType<IMethodSymbol>();
-            //option 2
-            IEnumerable<IMethodSymbol> methodSymbols2 = compilation.SyntaxTrees.SelectMany(tree => tree.GetRoot().DescendantNodes().OfType<IMethodSymbol>());
+
+            ////option 2
+            //IEnumerable<MethodDeclarationSyntax> methodSymbols2 = compilation.SyntaxTrees.SelectMany(tree => tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>());
 
             return methodSymbols;
         }
@@ -97,17 +96,17 @@ namespace ConsoleClient
         private static bool IsMethodUnitTest(IMethodSymbol methodSymbol)
         {
             // ultimately, It would be cool to inject a configFacade. in the console app, i could construct a configuration facade based on arguments and register it with ninject
-            List<string> testTypes = new List<string>() { "Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod"}; // get this from configuration or pass it to this method
+            List<string> testTypes = new List<string>() { "Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod" }; // get this from configuration or pass it to this method
 
             // with reflection, we could just use isAssignableFrom, but that doesn't exist for symbols and we can't convert symbols to type objects
             //https://stackoverflow.com/questions/33965410/how-to-compare-a-microsoft-codeanalysis-itypesymbol-to-a-system-type
             //https://stackoverflow.com/questions/39708316/roslyn-is-a-inamedtypesymbol-of-a-class-or-subclass-of-a-given-type
-            
+
             // I take fully-qualified names of test attributes and compare on those. Easier to configure, and roslyn has public fully qualified name support quasi-planned
             // additionally, it doesn't require me to create or pass a compilation. However, there is the rare case that it could confuse types that have the same 
             // fullname. It also makes comparison a little derpier because I can't use built in comparison like ClassifyConversion
             // https://stackoverflow.com/questions/27105909/get-fully-qualified-metadata-name-in-roslyn
-            IEnumerable<string> attributeTypeStrings = methodSymbol.GetAttributes().SelectMany(ad => ad.AttributeClass.AllInterfaces.Select(s => GetFullMetadataName(s) ));
+            IEnumerable<string> attributeTypeStrings = methodSymbol.GetAttributes().SelectMany(ad => ad.AttributeClass.AllInterfaces.Select(s => GetFullMetadataName(s)));
             bool doesHaveTestAttribute = testTypes.Intersect(attributeTypeStrings).Any();
 
             return doesHaveTestAttribute;
